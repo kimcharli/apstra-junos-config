@@ -10,3 +10,9 @@ cargo init
 
 
 
+## documentation
+
+```
+cargo doc --open
+```
+
