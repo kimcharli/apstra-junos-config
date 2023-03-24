@@ -6,6 +6,10 @@
 
 ```
 cargo init
+cargo add reqwest
+cargo add tokio
+cargo add futures
+cargo add serde_json
 ```
 
 
@@ -14,5 +18,11 @@ cargo init
 
 ```
 cargo doc --open
+```
+
+## run
+
+```
+RUST_LOG=debug cargo run
 ```
 
