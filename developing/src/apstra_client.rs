@@ -28,43 +28,10 @@ impl Client {
                 .danger_accept_invalid_certs(true)
                 .build() {
                     Ok(t) => t,
-                    Err(_) => reqwest::Client::new(),
+                    Err(_e) => reqwest::Client::new(),
                 };
         // TODO: fix Err(e)
 
-        // match result {
-        //     Ok{t) => my_client = t,
-
-        // }
-        // let client = Client {
-        //     // client: reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap(),
-        //     client: reqwest::Client::new(),
-        //     server: server.to_string(),
-        //     token: "".to_string(),
-        // };
-        // let mut auth_data = HashMap::new();
-        // auth_data.insert("username", "admin");
-        // auth_data.insert("password", "admin");
-
-        // let res = client.client.post(format!("{}{}", server, "/api/aaa/login"))
-        //     // format!("https://{server}/api/aaa/login"))
-        //     .json(&auth_data)
-        //     .header(reqwest::header::CONTENT_TYPE, "application/json")
-        //     // .header("AuthToken", self.token)
-        //     .send()
-        //     .await?
-        //     .text()
-        //     .await?;
-        // println!("Client::new({})", server);
-        // future::executor::block_on(response);
-        // match response.status() {
-        //     reqwest::StatusCode::OK => {
-        //         println!("Success!");
-        //     }
-        //     _ => {
-        //         println!("statuscode = {}", response.status());
-        //     }
-        // }
 
         let client = Client {
             // client: reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap(),
@@ -109,30 +76,6 @@ impl Client {
         debug!(target: target_log, "end: resp ={:?}, self = {}", resp, self);
         Ok(())
 
-            // .await? {
-            //     Ok(t) => {
-            //         // let token_json: serde_json::Value = t;
-            //         let something = t;
-            //         Ok(())
-            //         },
-            //     Err(e) => e,
-            //     }
-        // match token_json {
-        //     Ok(t) => t,
-        //     Err(e) => e,
-        // }
-        // "TO-BE-FIXED-token-string".to_string()
-
-        // let _response = client
-        //     .post(format!("{}{}", server, "/api/aaa/login"))
-        //     .header(reqwest::header::CONTENT_TYPE, "application/json")
-        //     // .header("AuthToken", self.token)
-        //     .body(auth_body)
-        //     .send()
-        //     .await
-        //     .unwrap();
-        // "token is hear".to_string()
-        // // response
     }
 
     fn build_url(&self, url: String) -> String {
@@ -144,7 +87,6 @@ impl Client {
     //     &self.client
     // }
 
-    // pub fn get(&self, url: String) -> reqwest::RequestBuilder {
     pub async fn get(&self, url: String) -> Result<(), Box<dyn std::error::Error>> {
         let target_log = "Client::get()";
         debug!(target: target_log, "begin...");
@@ -159,29 +101,6 @@ impl Client {
             .await?;
         println!("{:#?}", resp);
         Ok(())
-
-        // let client = reqwest::Client::builder()
-        //     .default_headers(headers)
-        //     .danger_accept_invalid_certs(true)
-        //     .build();
-        // let response = client
-        //     .get(built_url)
-        //     // .header(reqwest::header::CONTENT_TYPE, "application/json")
-        //     .send()
-        //     .await;
-        //     // .unwrap();
-        // println!(":Success! {:?}", response);
-        // match response.status() {
-        //     reqwest::StatusCode::OK => {
-        //         println!("Success! {:?}", response);
-        //     }
-        //     reqwest::StatusCode::UNAUTHORIZED => {
-        //         println!("Need to grab a new token");
-        //     }
-        //     other => {
-        //         panic!("Uh oh! Something unexpected happened: {:?}", other);
-        //     }
-        // }
     }
 }
 
