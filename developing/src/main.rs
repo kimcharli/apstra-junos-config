@@ -1,4 +1,4 @@
-use reqwest;
+// use reqwest;
 use log::{debug, info, warn, error};
 use env_logger;
 
@@ -83,7 +83,11 @@ async fn main() {
     // println!("Hello, world!");
     // let client = reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap();
     let client = apstra_client::Client::new(&"https://10.85.192.50".to_string());
-    debug!("client = {}", client);
+    match client.do_authenticate().await {
+        Ok(_) => debug!("auth done"),
+        Err(e) => error!("auth err"),
+    }
+    warn!("client = {}", client);
     // println!("Type of client = {}", client.type_name());
     // let result = client.client()
     let result = client
@@ -91,6 +95,7 @@ async fn main() {
         // .header(reqwest::header::ACCEPT, "application/json")
         // .send()
         .await;
+    error!("blueprints result = {:#?}", result);
     // match result {
     //     Err(e) => println!("Error: {:?}", e),
     //     // Ok(v) => println!("Body: {:?}", v)
