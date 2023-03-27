@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::any::type_name;
 use log::{debug, info, warn, error};
+use serde::{Deserialize, Serialize};
 
 
 fn type_of<T>(_: &T) -> &'static str {
@@ -18,6 +19,13 @@ impl std::fmt::Display for Client {
         write!(f, "( client: {}, server: {}, token: {})", type_of(&self.client), self.server, self.token)
     }
 }
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct LoginToken {
+    id: String,
+    token: String,
+}
+
 
 
 impl Client {
@@ -45,8 +53,11 @@ impl Client {
 
     }
 
+    // fn set_token(&mut self, token: String) {
+    //     self.token = token;
+    // }
 
-    pub async fn do_authenticate(&self) -> Result<(), reqwest::Error> {
+    pub async fn authenticate(&mut self) -> Result<(), reqwest::Error> {
         let target_log = "Client::authenticate";
         info!(target: target_log, "begin with client = {self}");
         // println!("authenticate({})", server);
@@ -64,16 +75,19 @@ impl Client {
             .post(url)
             // .header(reqwest::header::CONTENT_TYPE, "application/json")
             // .header("AuthToken", self.token)
-            .json(&serde_json::json!({
-                "username": "admin",
-                "passowrd": "admin"
-            }))
-            // .body(auth_body)
+            // .json(&serde_json::json!({
+            //     "username": "admin",
+            //     "passowrd": "admin"
+            // }))
+            .body("{\"username\": \"admin\", \"password\": \"zaq1@WSXcde3$RFV\"}")
             .send()
             .await?
-            .json::<serde_json::Value>()
+            .json::<LoginToken>()
             .await?;
-        debug!(target: target_log, "end: resp ={:?}, self = {}", resp, self);
+        // self.set_token(resp.token);
+        debug!(target: target_log, "resp ={:?}", resp);
+        self.token = resp.token;
+        debug!(target: target_log, "end: self = {}",self);
         Ok(())
 
     }
@@ -87,20 +101,31 @@ impl Client {
     //     &self.client
     // }
 
-    pub async fn get(&self, url: String) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn get(&self, url: String) -> Result<HashMap<String, String>, reqwest::Error> {
         let target_log = "Client::get()";
         debug!(target: target_log, "begin...");
         let built_url = self.build_url(url);
+        let token_header_value = reqwest::header::HeaderValue::from_str(&self.token).unwrap();
 
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_static("application/json"));
+        headers.insert("AuthToken", token_header_value);
+        debug!(target: target_log, "headers = {:#?}", headers);
 
-        let resp = reqwest::get(built_url)
-            .await?
-            .json::<HashMap<String, String>>()
+        let resp = self.client
+            .get(built_url)
+            .headers(headers)
+            .send()
+            // .await?
+            // .json::<HashMap<String, String>>()
             .await?;
-        println!("{:#?}", resp);
-        Ok(())
+        let json_data = resp.json::<HashMap<String, String>>().await;
+        match json_data {
+            Ok(t) => {debug!("result(t) = {:#?}", t); Ok(t)},
+            Err(e) => {error!("{:?}", e); Err(e)},
+        }
+        // println!("{:#?}", resp);
+        // Ok(resp)
     }
 }
 

@@ -2,6 +2,11 @@
 use log::{debug, info, warn, error};
 use env_logger;
 
+use chrono::Local;
+use std::io::Write;
+
+use std::collections::HashMap;
+
 mod apstra_client;
 
 
@@ -9,12 +14,23 @@ mod apstra_client;
 async fn main() { 
     env_logger::Builder::new()
         .filter(None, log::LevelFilter::Debug)
+        .format(|buf, record| {
+            writeln!(
+                buf,
+                "{}:{} [{} {}] - {}",
+                Local::now().format("%Y-%m-%dT%H:%M:%S"),
+                record.level(),
+                record.file().unwrap_or("unknown"),
+                record.line().unwrap_or(0),
+                record.args()
+            )
+        })
         .write_style(env_logger::WriteStyle::Always)
         .init();   
 
     info!("Starting....");
-    let client = apstra_client::Client::new(&"https://10.85.192.50".to_string());
-    match client.do_authenticate().await {
+    let mut client = apstra_client::Client::new(&"https://10.85.192.50".to_string());
+    match client.authenticate().await {
         Ok(_t) => debug!("auth done"),
         Err(_e) => error!("auth err"),
     }
@@ -24,6 +40,10 @@ async fn main() {
         // .header(reqwest::header::ACCEPT, "application/json")
         // .send()
         .await;
-    error!("blueprints result = {:#?}", result);
+    match result {
+        Ok(t) => debug!("result = {:#?}", t),
+        Err(e) => error!("{:?}", e),
+    }
+//     error!("blueprints result = {:#?}", result);
 }
 
