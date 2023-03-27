@@ -8,10 +8,12 @@ fn type_of<T>(_: &T) -> &'static str {
     type_name::<T>()
 }
 
+// #[derive(Debug, Clone)]
 pub struct Client {
     client: reqwest::Client,
     server: String,
     token: String,
+    tokened_headers: reqwest::header::HeaderMap,
 }
 
 impl std::fmt::Display for Client {
@@ -26,6 +28,11 @@ struct LoginToken {
     token: String,
 }
 
+#[derive(Debug, Serialize)]
+pub struct LoginData {
+    pub username: String,
+    pub password: String,
+}
 
 
 impl Client {
@@ -41,53 +48,48 @@ impl Client {
         // TODO: fix Err(e)
 
 
-        let client = Client {
+        let mut client = Client {
             // client: reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap(),
             client: my_client,
             server: server.to_string(),
             token: "".to_string(),
+            tokened_headers: reqwest::header::HeaderMap::new(),
         };
-        // client.authenticate();
         error!(target: "Client::new()", "end: client = {}", client);
         client
 
     }
 
-    // fn set_token(&mut self, token: String) {
-    //     self.token = token;
-    // }
-
-    pub async fn authenticate(&mut self) -> Result<(), reqwest::Error> {
+    // authenticate and update token and tokened_headers
+    pub async fn authenticate(&mut self, login_data: &LoginData) -> Result<(), reqwest::Error> {
         let target_log = "Client::authenticate";
         info!(target: target_log, "begin with client = {self}");
-        // println!("authenticate({})", server);
-        // let mut auth_data = HashMap::new();
-        // auth_data.insert("username", "admin");
-        // auth_data.insert("password", "admin");
-        // let auth_body = serde_json::to_string(&auth_data).unwrap();
 
-        // let mut headers = reqwest::header::HeaderMap::new();
-        // headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_static("application/json"));
+        // let login_data = LoginData {
+        //     username: "admin".to_string(),
+        //     password: "zaq1@WSXcde3$RFV".to_string(),
+        // };
 
         let url = self.build_url("/api/aaa/login".to_string());
         let resp = self.client
-            // .post(format!("{}{}", self.server, "/api/aaa/login"))
             .post(url)
             // .header(reqwest::header::CONTENT_TYPE, "application/json")
-            // .header("AuthToken", self.token)
-            // .json(&serde_json::json!({
-            //     "username": "admin",
-            //     "passowrd": "admin"
-            // }))
-            .body("{\"username\": \"admin\", \"password\": \"zaq1@WSXcde3$RFV\"}")
+            .json(&login_data)
             .send()
             .await?
             .json::<LoginToken>()
             .await?;
-        // self.set_token(resp.token);
-        debug!(target: target_log, "resp ={:?}", resp);
+        // debug!(target: target_log, "resp ={:?}", resp);
         self.token = resp.token;
         debug!(target: target_log, "end: self = {}",self);
+
+        let token_header_value = reqwest::header::HeaderValue::from_str(&self.token).unwrap();
+
+        self.tokened_headers = reqwest::header::HeaderMap::new();
+        self.tokened_headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_static("application/json"));
+        self.tokened_headers.insert("AuthToken", token_header_value);
+        debug!(target: target_log, "headers = {:#?}", self.tokened_headers);
+
         Ok(())
 
     }
@@ -97,11 +99,26 @@ impl Client {
         format!("{}{}", self.server, url)
     }
 
-    // pub fn client(&self) -> &reqwest::Client {
-    //     &self.client
-    // }
+    // get String output from url
+    // take url as String to allow for query parameters
+    pub async fn getText(&self, url: String) -> Result<String, reqwest::Error> {
+        let target_log = "Client::getText()";
+        debug!(target: target_log, "begin...");
+        let built_url = self.build_url(url);
 
-    pub async fn get(&self, url: String) -> Result<HashMap<String, String>, reqwest::Error> {
+        let resp = self.client
+            .get(built_url)
+            .headers(self.tokened_headers.clone())
+            .send()
+            .await?
+            .text()
+            .await?;
+        debug!(target: target_log, "end: resp = {:#?}", resp);
+        Ok(resp)
+    }
+    
+
+    pub async fn getJson(&self, url: String) -> Result<HashMap<String, String>, reqwest::Error> {
         let target_log = "Client::get()";
         debug!(target: target_log, "begin...");
         let built_url = self.build_url(url);
@@ -119,6 +136,12 @@ impl Client {
             // .await?
             // .json::<HashMap<String, String>>()
             .await?;
+
+        // q: how to clone above resp ?
+    
+        // println!("{:#?}", resp);
+        // println!("{:#?}", resp.text().await);
+
         let json_data = resp.json::<HashMap<String, String>>().await;
         match json_data {
             Ok(t) => {debug!("result(t) = {:#?}", t); Ok(t)},
