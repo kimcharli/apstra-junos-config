@@ -12,13 +12,21 @@ fn type_of<T>(_: &T) -> &'static str {
 pub struct Client {
     client: reqwest::Client,
     server: String,
-    token: String,
-    tokened_headers: reqwest::header::HeaderMap,
+    token: Option<String>,
+    tokened_headers: Option<reqwest::header::HeaderMap>,
 }
 
 impl std::fmt::Display for Client {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "( client: {}, server: {}, token: {})", type_of(&self.client), self.server, self.token)
+        let token_string: String = match &self.token {
+            Some(t) => t.clone(),
+            None => String::from("None"),
+        };
+        let tokened_headers_string: String = match &self.tokened_headers {
+            Some(t) => format!("{:#?}", t),
+            None => String::from("None"),
+        };
+        write!(f, "( client: {}, server: {}, token: {}, headers: {:#?} )", type_of(&self.client), self.server, token_string, tokened_headers_string)
     }
 }
 
@@ -36,7 +44,7 @@ pub struct LoginData {
 
 
 impl Client {
-    pub fn new(server: &String) -> Client {
+    pub fn new(server: &String) -> Self {
         info!(target: "Client::new()", "begin: server = {}", server);
         // let my_client: reqwest::Client;
         let my_client = match reqwest::Client::builder()
@@ -48,17 +56,47 @@ impl Client {
         // TODO: fix Err(e)
 
 
-        let mut client = Client {
+        let mut client = Self {
             // client: reqwest::Client::builder().danger_accept_invalid_certs(true).build().unwrap(),
             client: my_client,
-            server: server.to_string(),
-            token: "".to_string(),
-            tokened_headers: reqwest::header::HeaderMap::new(),
+            server: String::from(server),
+            token: None,
+            tokened_headers: None,
         };
         error!(target: "Client::new()", "end: client = {}", client);
         client
 
     }
+
+
+    // // getJson from url
+    // // take url as String to allow for query parameters
+    // pub async fn getJson<T>(&self, url: String) -> Result<T, reqwest::Error>
+    // where
+    //     T: serde::de::DeserializeOwned,
+    // {
+    //     let target_log = "Client::getJson";
+    //     info!(target: target_log, "begin with client = {self}");
+    //     let url = self.build_url(url);
+    //     let resp = self.client
+    //         .get(url)
+    //         .headers(self.tokened_headers.clone())
+    //         .send()
+    //         .await?
+    //         .json::<T>()
+    //         .await?;
+    //     debug!(target: target_log, "end: resp = {:#?}", resp);
+    //     Ok(resp)
+    // }
+
+
+    // fn get_token_header(&self) -> reqwest::header::HeaderMap {
+    //     let mut headers = reqwest::header::HeaderMap::new();
+    //     let token = self.token.clone().unwrap();
+    //     let token_header_value = reqwest::header::HeaderValue::from_str(&token).unwrap();
+    //     headers.insert("X-Auth-Token", token_header_value);
+    //     headers
+    // }
 
     // authenticate and update token and tokened_headers
     pub async fn authenticate(&mut self, login_data: &LoginData) -> Result<(), reqwest::Error> {
@@ -70,7 +108,7 @@ impl Client {
         //     password: "zaq1@WSXcde3$RFV".to_string(),
         // };
 
-        let url = self.build_url("/api/aaa/login".to_string());
+        let url = self.build_url(String::from("/api/aaa/login"));
         let resp = self.client
             .post(url)
             // .header(reqwest::header::CONTENT_TYPE, "application/json")
@@ -80,14 +118,16 @@ impl Client {
             .json::<LoginToken>()
             .await?;
         // debug!(target: target_log, "resp ={:?}", resp);
-        self.token = resp.token;
+        self.token = Some(resp.token);
         debug!(target: target_log, "end: self = {}",self);
 
-        let token_header_value = reqwest::header::HeaderValue::from_str(&self.token).unwrap();
+        let token_header_value = reqwest::header::HeaderValue::from_str(self.token.as_ref().unwrap()).unwrap();
 
-        self.tokened_headers = reqwest::header::HeaderMap::new();
-        self.tokened_headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_static("application/json"));
-        self.tokened_headers.insert("AuthToken", token_header_value);
+        
+        let mut tokened_headers = reqwest::header::HeaderMap::new();
+        tokened_headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_static("application/json"));
+        tokened_headers.insert("AuthToken", token_header_value);
+        self.tokened_headers = Some(tokened_headers);
         debug!(target: target_log, "headers = {:#?}", self.tokened_headers);
 
         Ok(())
@@ -108,7 +148,8 @@ impl Client {
 
         let resp = self.client
             .get(built_url)
-            .headers(self.tokened_headers.clone())
+            // .headers(self.tokened_headers.as_ref().unwrap() clone())
+            .headers(self.tokened_headers.as_ref().unwrap().clone())
             .send()
             .await?
             .text()
@@ -122,16 +163,17 @@ impl Client {
         let target_log = "Client::get()";
         debug!(target: target_log, "begin...");
         let built_url = self.build_url(url);
-        let token_header_value = reqwest::header::HeaderValue::from_str(&self.token).unwrap();
+        // let token_header_value = reqwest::header::HeaderValue::from_str(&self.token).unwrap();
 
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_static("application/json"));
-        headers.insert("AuthToken", token_header_value);
-        debug!(target: target_log, "headers = {:#?}", headers);
+        // let mut headers = reqwest::header::HeaderMap::new();
+        // headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_static("application/json"));
+        // headers.insert("AuthToken", token_header_value);
+        // debug!(target: target_log, "headers = {:#?}", headers);
 
         let resp = self.client
             .get(built_url)
-            .headers(headers)
+            // .headers(headers)
+            .headers(self.tokened_headers.as_ref().unwrap().clone())
             .send()
             // .await?
             // .json::<HashMap<String, String>>()

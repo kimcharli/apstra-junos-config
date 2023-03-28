@@ -29,11 +29,11 @@ async fn main() {
         .init();   
 
     info!("Starting....");
-    let mut client = apstra_client::Client::new(&"https://10.85.192.50".to_string());
+    let mut client = apstra_client::Client::new(&String::from("https://10.85.192.50"));
 
     let login_data = apstra_client::LoginData {
-        username: "admin".to_string(),
-        password: "zaq1@WSXcde3$RFV".to_string(),
+        username: String::from("admin"),
+        password: String::from("zaq1@WSXcde3$RFV"),
     };
     match client.authenticate(&login_data).await {
         Ok(_t) => debug!("auth done"),
@@ -41,7 +41,7 @@ async fn main() {
     }
     warn!("client = {}", client);
     let result = client
-        .getText("/api/blueprints".to_string())
+        .getText(String::from("/api/blueprints"))
         // .header(reqwest::header::ACCEPT, "application/json")
         // .send()
         .await;
