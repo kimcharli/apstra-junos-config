@@ -1,126 +1,69 @@
-use clap::Parser;
-// use anyhow::{Context, Result};
-use anyhow::{Result};
-// use url::{Url, ParseError};
-// use url::{Url};
+// use reqwest;
+use log::{debug, info, warn, error};
+use env_logger;
 
-use reqwest::{Client, header::CONTENT_TYPE};
-use std::{env, collections::HashMap};
+use chrono::Local;
+use std::io::Write;
 
-/// Retrive the device configurations from Apstra 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Arguments {
-    /// Apstar Server
-    #[arg(short, long)]
-    #[clap(default_value="10.85.192.62")]
-    server: String,
+use std::collections::HashMap;
 
-    /// User name to the Apstra server
-    #[arg(short, long)]
-    #[clap(default_value="admin")]
-    user: String,
-
-    /// Password of the user
-    #[arg(short, long)]
-    #[clap(default_value="admin")]
-    password: String,
-
-    /// Blueprint name
-    #[arg(short, long)]
-    #[clap(default_value="TJC")]
-    blueprint: String,
-
-    /// Path to the folder to save configuraitons
-    #[arg(short, long)]
-    #[clap(default_value="work/test1")]
-    output_folder: std::path::PathBuf,
-
-    /// Proxy URL
-    #[arg(short, long)]
-    #[clap(default_value="")]
-    web_proxy: String,
-}
-
-struct CkApstraServer<'a> {
-    server: String,
-    // port: u16,
-    auth_data: HashMap<&'a str, String>,
-    // user: String,
-    // password: String,
-    blueprint: String,
-    client: reqwest::Client,
-    token: String,    
-}
-
-impl CkApstraServer<'_> {
-    async fn new(server: String, user: String, password: String, blueprint: String) -> Result<CkApstraServer<'static>, reqwest::Error> {
-        // let u16_port = port.parse::<u16>().unwrap();
-        let mut auth_data = HashMap::new();
-        auth_data.insert("username", user);
-        auth_data.insert("password", password);
-
-        let client = reqwest::Client::new();
-        // let url = "https://{}/api/aaa/login", server
-        let res = client.post(format!("https://{server}/api/aaa/login"))
-            .json(&auth_data)
-            .header(CONTENT_TYPE, "application/json")
-            // .header("AuthToken", self.token)
-            .send()
-            .await?
-            .text()
-            .await?;
-
-        println!("res = {res}");
-
-        Ok(CkApstraServer { server: server, auth_data: auth_data, blueprint: blueprint, client: client, token: res})
-    } 
-
-    fn print_token(self) {
-        println!("token = {}", self.token);
-    }
-}
+mod apstra_client;
 
 
-// fn main() -> Result<(), Box<dyn std::error::Error>> {
-fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
-    println!("args = {:?}", args);
+#[tokio::main]
+async fn main() { 
+    env_logger::Builder::new()
+        .filter(None, log::LevelFilter::Debug)
+        .format(|buf, record| {
+            writeln!(
+                buf,
+                "{}:{} [{} {}] - {}",
+                Local::now().format("%Y-%m-%dT%H:%M:%S"),
+                record.level(),
+                record.file().unwrap_or("unknown"),
+                record.line().unwrap_or(0),
+                record.args()
+            )
+        })
+        .write_style(env_logger::WriteStyle::Always)
+        .init();   
 
-    let args = Arguments::parse();
-    println!("args = {:?}", args);
-    let path = &args.output_folder;
-    // // let content = std::fs::read_to_string(&args.destination_folder).expect("could not read file");
-    // let result = std::fs::read_to_string(&args.destination_folder);
-    // let content = match result {
-    //     Ok(content) => { content },
-    //     Err(error) => { panic!("Can't deal with {}, just exit here", error ); }
-    // };
-    // let content = std::fs::read_to_string(&args.destination_folder)?;
-    // let content = std::fs::read_to_string(path)
-    //     .with_context(|| format!("could not read file `{}`", path.to_string_lossy()))?;
+    info!("Starting....");
+    let mut client = apstra_client::Client::new(&String::from("https://10.85.192.50"));
 
-    // println!("file content: {}", content);
-    // println!("url: {}, path: {}", args.apstra_url, content);
-    // for line in content.lines() {
-    //     if line.contains(&args.pattern) {
-    //         println!("{}", line);
-    //     }
-    // }
-    std::fs::create_dir_all(path)?;
-    // let apstra_url = Url::parse(&args.host)?;
-    // println!("apstra_url scheme = {}, host = {}, port = {}, user = {}", apstra_url.scheme(), apstra_url.host(), apstra_url.port(), apstra_url.username());
-    // println!("apstra_url scheme = {}, user = {}", apstra_url.scheme(), apstra_url.username());
-
-    let server = CkApstraServer::new( args.server, args.user, args.password, args.blueprint );
-    match server {
-        Ok(myserver) => myserver.print_token(),
-        Err(err) => println!("Error: {}", err)
+    let login_data = apstra_client::LoginData {
+        username: String::from("admin"),
+        password: String::from("zaq1@WSXcde3$RFV"),
     };
-    
-    // server.print_token();
+    match client.authenticate(&login_data).await {
+        Ok(_t) => debug!("auth done"),
+        Err(_e) => error!("auth err"),
+    }
+    // warn!("client = {}", client);
+    // let result = client
+    //     .getText(String::from("/api/blueprints"))
+    //     // .header(reqwest::header::ACCEPT, "application/json")
+    //     // .send()
+    //     .await;
+    // match result {
+    //     Ok(t) => debug!("result = {:#?}", t),
+    //     Err(e) => error!("{:?}", e),
+    // }
+//     error!("blueprints result = {:#?}", result);
 
-    Ok(())
+    let json_data = client.getJson::<serde_json::Value>(String::from("/api/blueprints")).await;
+    match json_data {
+        Ok(t) => {
+            debug!("json_data = {:#?}", t);
+            for blueprint in t["items"].as_array().unwrap() {
+                debug!("blueprint = {:#?}", blueprint);
+                let label = blueprint["label"].as_str().unwrap();
+                let id = blueprint["id"].as_str().unwrap();
+                debug!("label = {}, id = {}", label, id);
+            }
+        },
+        Err(e) => error!("{:?}", e),
+    }
+
 }
-
 

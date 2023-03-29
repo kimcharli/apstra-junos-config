@@ -18,15 +18,18 @@ pub struct Client {
 
 impl std::fmt::Display for Client {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let token_string: String = match &self.token {
-            Some(t) => t.clone(),
-            None => String::from("None"),
-        };
         let tokened_headers_string: String = match &self.tokened_headers {
             Some(t) => format!("{:#?}", t),
             None => String::from("None"),
         };
-        write!(f, "( client: {}, server: {}, token: {}, headers: {:#?} )", type_of(&self.client), self.server, token_string, tokened_headers_string)
+        write!(
+            f, 
+            "( client: {}, server: {}, token: {}, headers: {:#?} )", 
+            type_of(&self.client), 
+            self.server, 
+            self.token.clone().unwrap_or(String::from("None")), 
+            tokened_headers_string
+        )
     }
 }
 
@@ -69,25 +72,6 @@ impl Client {
     }
 
 
-    // // getJson from url
-    // // take url as String to allow for query parameters
-    // pub async fn getJson<T>(&self, url: String) -> Result<T, reqwest::Error>
-    // where
-    //     T: serde::de::DeserializeOwned,
-    // {
-    //     let target_log = "Client::getJson";
-    //     info!(target: target_log, "begin with client = {self}");
-    //     let url = self.build_url(url);
-    //     let resp = self.client
-    //         .get(url)
-    //         .headers(self.tokened_headers.clone())
-    //         .send()
-    //         .await?
-    //         .json::<T>()
-    //         .await?;
-    //     debug!(target: target_log, "end: resp = {:#?}", resp);
-    //     Ok(resp)
-    // }
 
 
     // fn get_token_header(&self) -> reqwest::header::HeaderMap {
@@ -102,11 +86,6 @@ impl Client {
     pub async fn authenticate(&mut self, login_data: &LoginData) -> Result<(), reqwest::Error> {
         let target_log = "Client::authenticate";
         info!(target: target_log, "begin with client = {self}");
-
-        // let login_data = LoginData {
-        //     username: "admin".to_string(),
-        //     password: "zaq1@WSXcde3$RFV".to_string(),
-        // };
 
         let url = self.build_url(String::from("/api/aaa/login"));
         let resp = self.client
@@ -123,7 +102,6 @@ impl Client {
 
         let token_header_value = reqwest::header::HeaderValue::from_str(self.token.as_ref().unwrap()).unwrap();
 
-        
         let mut tokened_headers = reqwest::header::HeaderMap::new();
         tokened_headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_static("application/json"));
         tokened_headers.insert("AuthToken", token_header_value);
@@ -159,38 +137,25 @@ impl Client {
     }
     
 
-    pub async fn getJson(&self, url: String) -> Result<HashMap<String, String>, reqwest::Error> {
-        let target_log = "Client::get()";
-        debug!(target: target_log, "begin...");
-        let built_url = self.build_url(url);
-        // let token_header_value = reqwest::header::HeaderValue::from_str(&self.token).unwrap();
-
-        // let mut headers = reqwest::header::HeaderMap::new();
-        // headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_static("application/json"));
-        // headers.insert("AuthToken", token_header_value);
-        // debug!(target: target_log, "headers = {:#?}", headers);
-
+    // getJson from url
+    // take url as String to allow for query parameters
+    pub async fn getJson<T>(&self, url: String) -> Result<T, reqwest::Error>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let target_log = "Client::getJson";
+        info!(target: target_log, "begin with client = {self}");
+        let url = self.build_url(url);
         let resp = self.client
-            .get(built_url)
-            // .headers(headers)
+            .get(url)
             .headers(self.tokened_headers.as_ref().unwrap().clone())
             .send()
-            // .await?
-            // .json::<HashMap<String, String>>()
+            .await?
+            .json::<T>()
             .await?;
-
-        // q: how to clone above resp ?
-    
-        // println!("{:#?}", resp);
-        // println!("{:#?}", resp.text().await);
-
-        let json_data = resp.json::<HashMap<String, String>>().await;
-        match json_data {
-            Ok(t) => {debug!("result(t) = {:#?}", t); Ok(t)},
-            Err(e) => {error!("{:?}", e); Err(e)},
-        }
-        // println!("{:#?}", resp);
-        // Ok(resp)
+        // debug!(target: target_log, "end: resp = {:#?}", resp);
+        Ok(resp)
     }
+ 
 }
 
